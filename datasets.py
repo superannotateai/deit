@@ -1,76 +1,76 @@
 # Copyright (c) 2015-present, Facebook, Inc.
 # All rights reserved.
 import os
+import csv
 import json
 
 from torchvision import datasets, transforms
-from torchvision.datasets.folder import ImageFolder, default_loader
+from torchvision.datasets.folder import ImageFolder, pil_loader, default_loader
 
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
 
 
-class INatDataset(ImageFolder):
-    def __init__(self, root, train=True, year=2018, transform=None, target_transform=None,
-                 category='name', loader=default_loader):
+class SACustomDataset(ImageFolder):
+    def __init__(
+        self,
+        root,
+        train=True,
+        year=2021,
+        transform=None,
+        target_transform=None,
+        category='name',
+        loader= pil_loader,
+        extra_args = None
+    ):
+        self.root = root
         self.transform = transform
         self.loader = loader
         self.target_transform = target_transform
         self.year = year
-        # assert category in ['kingdom','phylum','class','order','supercategory','family','genus','name']
-        path_json = os.path.join(root, f'{"train" if train else "val"}{year}.json')
-        with open(path_json) as json_file:
-            data = json.load(json_file)
-
-        with open(os.path.join(root, 'categories.json')) as json_file:
-            data_catg = json.load(json_file)
-
-        path_json_for_targeter = os.path.join(root, f"train{year}.json")
-
-        with open(path_json_for_targeter) as json_file:
-            data_for_targeter = json.load(json_file)
-
-        targeter = {}
-        indexer = 0
-        for elem in data_for_targeter['annotations']:
-            king = []
-            king.append(data_catg[int(elem['category_id'])][category])
-            if king[0] not in targeter.keys():
-                targeter[king[0]] = indexer
-                indexer += 1
-        self.nb_classes = len(targeter)
-
+        self.nb_classes = None
+        self.train = train
         self.samples = []
-        for elem in data['images']:
-            cut = elem['file_name'].split('/')
-            target_current = int(cut[2])
-            path_current = os.path.join(root, cut[0], cut[2], cut[3])
+        model_dir = extra_args.finetune
+        if train:
+            path_to_manifest  = extra_args.manifest_dirs['train_manifest']
+            self.images_dir = extra_args.image_dirs['train_images_dir']
+        else:
+            path_to_manifest  = extra_args.manifest_dirs['test_manifest']
+            self.images_dir = extra_args.image_dirs['test_images_dir']
 
-            categors = data_catg[target_current]
-            target_current_true = targeter[categors[category]]
-            self.samples.append((path_current, target_current_true))
+        categories = {}
+        path_to_classes = 'model/classes_mapper.json'
+        with open(path_to_classes, 'r') as fp:
+            classes = json.load(fp)
+            self.nb_classes = len(classes)
 
-    # __getitem__ and __len__ inherited from ImageFolder
+        with open(path_to_manifest, 'r') as fp:
+            reader = csv.reader(fp, delimiter=',')
+            print(path_to_manifest)
+
+            self.samples = [
+                (self.make_img_path(row[0]), int(row[1])) for row in reader
+            ]
+
+    def make_img_path(self, img_name):
+        return os.path.join(self.images_dir, img_name)
 
 
 def build_dataset(is_train, args):
     transform = build_transform(is_train, args)
 
-    if args.data_set == 'CIFAR':
-        dataset = datasets.CIFAR100(args.data_path, train=is_train, transform=transform)
-        nb_classes = 100
-    elif args.data_set == 'IMNET':
-        root = os.path.join(args.data_path, 'train' if is_train else 'val')
-        dataset = datasets.ImageFolder(root, transform=transform)
-        nb_classes = 1000
-    elif args.data_set == 'INAT':
-        dataset = INatDataset(args.data_path, train=is_train, year=2018,
-                              category=args.inat_category, transform=transform)
+    if args.data_set == 'SACustomDataset':
+        dataset = SACustomDataset(
+            root = args.data_path,
+            train=is_train,
+            year=2021,
+            category='name',
+            transform=transform,
+            extra_args = args
+        )
         nb_classes = dataset.nb_classes
-    elif args.data_set == 'INAT19':
-        dataset = INatDataset(args.data_path, train=is_train, year=2019,
-                              category=args.inat_category, transform=transform)
-        nb_classes = dataset.nb_classes
+    print(dataset)
 
     return dataset, nb_classes
 
@@ -93,14 +93,16 @@ def build_transform(is_train, args):
             # replace RandomResizedCropAndInterpolation with
             # RandomCrop
             transform.transforms[0] = transforms.RandomCrop(
-                args.input_size, padding=4)
+                args.input_size, padding=4
+            )
         return transform
 
     t = []
     if resize_im:
         size = int((256 / 224) * args.input_size)
         t.append(
-            transforms.Resize(size, interpolation=3),  # to maintain same ratio w.r.t. 224 images
+            transforms.Resize(size, interpolation=3
+                             ),  # to maintain same ratio w.r.t. 224 images
         )
         t.append(transforms.CenterCrop(args.input_size))
 

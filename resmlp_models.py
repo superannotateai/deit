@@ -20,8 +20,8 @@ class Affine(nn.Module):
         self.beta = nn.Parameter(torch.zeros(dim))
 
     def forward(self, x):
-        return self.alpha * x + self.beta    
-    
+        return self.alpha * x + self.beta
+
 class layers_scale_mlp_blocks(nn.Module):
 
     def __init__(self, dim, drop=0., drop_path=0., act_layer=nn.GELU,init_values=1e-4,num_patches = 196):
@@ -37,7 +37,7 @@ class layers_scale_mlp_blocks(nn.Module):
     def forward(self, x):
         x = x + self.drop_path(self.gamma_1 * self.attn(self.norm1(x).transpose(1,2)).transpose(1,2))
         x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
-        return x 
+        return x
 
 
 class resmlp_models(nn.Module):
@@ -50,7 +50,7 @@ class resmlp_models(nn.Module):
 
 
         self.num_classes = num_classes
-        self.num_features = self.embed_dim = embed_dim  
+        self.num_features = self.embed_dim = embed_dim
 
         self.patch_embed = Patch_layer(
                 img_size=img_size, patch_size=patch_size, in_chans=int(in_chans), embed_dim=embed_dim)
@@ -107,7 +107,7 @@ class resmlp_models(nn.Module):
     def forward(self, x):
         x  = self.forward_features(x)
         x = self.head(x)
-        return x 
+        return x
 
 @register_model
 def resmlp_12(pretrained=False,dist=False, **kwargs):
@@ -115,7 +115,7 @@ def resmlp_12(pretrained=False,dist=False, **kwargs):
         patch_size=16, embed_dim=384, depth=12,
         Patch_layer=PatchEmbed,
         init_scale=0.1,**kwargs)
-    
+
     model.default_cfg = _cfg()
     if pretrained:
         if dist:
@@ -126,10 +126,10 @@ def resmlp_12(pretrained=False,dist=False, **kwargs):
             url=url_path,
             map_location="cpu", check_hash=True
         )
-            
+
         model.load_state_dict(checkpoint)
     return model
-  
+
 @register_model
 def resmlp_24(pretrained=False,dist=False,dino=False, **kwargs):
     model = resmlp_models(
@@ -148,10 +148,10 @@ def resmlp_24(pretrained=False,dist=False,dino=False, **kwargs):
             url=url_path,
             map_location="cpu", check_hash=True
         )
-            
+
         model.load_state_dict(checkpoint)
     return model
-  
+
 @register_model
 def resmlp_36(pretrained=False,dist=False, **kwargs):
     model = resmlp_models(
@@ -168,7 +168,7 @@ def resmlp_36(pretrained=False,dist=False, **kwargs):
             url=url_path,
             map_location="cpu", check_hash=True
         )
-            
+
         model.load_state_dict(checkpoint)
     return model
 
@@ -186,12 +186,12 @@ def resmlpB_24(pretrained=False,dist=False, in_22k = False, **kwargs):
           url_path = "https://dl.fbaipublicfiles.com/deit/resmlpB_24_22k.pth"
         else:
           url_path = "https://dl.fbaipublicfiles.com/deit/resmlpB_24_no_dist.pth"
-            
+
         checkpoint = torch.hub.load_state_dict_from_url(
             url=url_path,
             map_location="cpu", check_hash=True
         )
-            
+
         model.load_state_dict(checkpoint)
-    
+
     return model
