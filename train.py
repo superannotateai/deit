@@ -28,7 +28,7 @@ from deit.samplers import RASampler
 import deit.models as models
 import deit.utils as utils
 
-def main(args):
+def train(args):
     utils.init_distributed_mode(args)
 
     print(args)
